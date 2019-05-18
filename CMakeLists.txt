@@ -10,4 +10,11 @@ set(SOURCE_FILES app/main.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
-target_link_libraries(${PROJECT_NAME} opencv_core opencv_imgcodecs opencv_highgui)
+target_link_libraries(${PROJECT_NAME} 
+                        opencv_core 
+                        opencv_features2d 
+                        opencv_stitching 
+                        opencv_imgcodecs 
+                        opencv_highgui 
+                        opencv_imgproc
+                    )
