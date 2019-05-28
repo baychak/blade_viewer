@@ -9,8 +9,7 @@ metadata <-
         blade_number_abc,
         blade_side,
         path_to_file,
-        cam_to_blade_rbt,
-        plane_to_blade_rbt
+        cam_to_blade_rbt
     )]
 
 
@@ -22,16 +21,20 @@ metadata <-
     metadata[, .(
         blade_side,
         path_to_file,
-        cam_to_blade_rbt,
-        plane_to_blade_rbt
+        cam_to_blade_rbt
     )]
 
 parseCoordinatesString <- function(coordString) {
     matrix(as.double(unlist(str_extract_all(coordString, "-?\\d+.(\\d+|)"))), nrow = 4, ncol = 4, byrow = T)
 }
 
+extractFileName <- function(path) {
+    str_extract(path, "snapshot\\d.+")
+}
+
 metadata[, cam_to_blade_rbt := lapply(cam_to_blade_rbt, parseCoordinatesString)]
-metadata[, plane_to_blade_rbt := lapply(plane_to_blade_rbt, parseCoordinatesString)]
+metadata[, file := sapply(path_to_file, extractFileName)]
+metadata[, path_to_file := NULL]
 
 getUpAngle <- function(yVect) {
     z <- c(0,0,1)
@@ -40,8 +43,8 @@ getUpAngle <- function(yVect) {
 }
 
 data.leading.edge <- metadata[blade_side == "leading-edge"]
-data.leading.edge <- data.leading.edge[order(path_to_file)]
-coords.leading.edge <- data.leading.edge[, .(cam_to_blade_rbt, plane_to_blade_rbt)]
+data.leading.edge <- data.leading.edge[order(file)]
+coords.leading.edge <- data.leading.edge[, .(file, cam_to_blade_rbt)]
 coords.leading.edge[,
        c("x", "y", "z", "alpha") := .(
        sapply(cam_to_blade_rbt, function(mat) {mat[1, 4]}),
@@ -55,7 +58,14 @@ plot(coords.leading.edge$x, coords.leading.edge$y, type = "l")
 
 trans <- c(2728, 1816)
 
-R <- 5000
+distanceToBlade <- 7.0 # 20 and 21 snapshot of leading edge
+snapshot20_21_z_delta <- coords.leading.edge$z[21] - coords.leading.edge$z[20] # in meters
+snapshot20_21_Ydelta <- 3565 - 407 # in pixels
+
+R <- snapshot20_21_Ydelta / (cos(coords.leading.edge$alpha[21])^2 * snapshot20_21_z_delta/distanceToBlade) # const for camera
+
+scaleFactor <- cos(coords.leading.edge$alpha[21]) * snapshot20_21_z_delta / snapshot20_21_Ydelta # meter per pixel on corrected image
+
 FlipY <- matrix(c(1,0,0,0,
                   0,-1,0,0,
                   0,0,1,0,
@@ -86,10 +96,15 @@ getTransformation <- function(alpha, R) {
                       nrow = 4, ncol = 4, byrow = T)
 
     Transformation <- Translation %*% FlipY %*% ReconstructionY %*% RotateX %*% ProjectionZ %*% FlipY %*% InvTranslation
-    t(Transformation/Transformation[4,4])
+    (Transformation/Transformation[4,4])[-3,-3]
 }
 
 coords.leading.edge[,  transformation := lapply(alpha, function(angle) {getTransformation(angle, R)})]
+coords.leading.edge[,  cam_to_blade_rbt := NULL]
+
+fwrite(coords.leading.edge, file = "data/leading-edge/metadata.csv")
+
+
 
 Trans <- coords.leading.edge$transformation[[10]]
 output <- Trans %*% c(0,0,0,1)
@@ -100,6 +115,8 @@ output <- Trans %*% c(5456,3632,0,1)
 (output <- (output/output[4])[1:2])
 output <- Trans %*% c(0,3632,0,1)
 (output <- (output/output[4])[1:2])
+
+Trans
 
 #############################
 getProjCoord <- function(X, angle, R, Translate) {
