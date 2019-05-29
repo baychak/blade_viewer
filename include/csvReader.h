@@ -9,8 +9,8 @@
 struct ImageMetadata
 {
     std::string file;
-    double x;
-    double y;
+    double top;
+    double bottom;
     double z;
     double alpha;
     cv::Mat transformation;

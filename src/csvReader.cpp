@@ -38,8 +38,8 @@ ImageMetadata CsvReader::readCSVRow(std::string &row)
     ImageMetadata metaData;
 
     metaData.file = getToken(row, ",");
-    metaData.x = std::stod(getToken(row, ","));
-    metaData.y = std::stod(getToken(row, ","));
+    metaData.top = std::stod(getToken(row, ","));
+    metaData.bottom = std::stod(getToken(row, ","));
     metaData.z = std::stod(getToken(row, ","));
     metaData.alpha = std::stod(getToken(row, ","));
 

@@ -50,22 +50,31 @@ getAzimuthSin <- function(zCamVector, mainDirection) {
     zCamVector[1]*mainDirection[2] - zCamVector[2]*mainDirection[1]
 }
 
+object.center = c(1.0, 0.5)
+
+getDistance <- function(xyPoint) {
+    sqrt(sum((xyPoint-object.center)^2))
+}
+
 ###### leading-edge
 data.leading.edge <- metadata[blade_side == "leading-edge"]
 projection.direction = c(-1,0)
 data.leading.edge <- data.leading.edge[order(file)]
 coords.leading.edge <- data.leading.edge[, .(file, cam_to_blade_rbt)]
 coords.leading.edge[,
-       c("x", "y", "z", "alpha", "azimuth") := .(
+       c("x", "y", "z", "alpha", "azimuth", "distance") := .(
            sapply(cam_to_blade_rbt, function(mat) {mat[1, 4]}),
            sapply(cam_to_blade_rbt, function(mat) {mat[2, 4]}),
            sapply(cam_to_blade_rbt, function(mat) {mat[3, 4]}),
            sapply(cam_to_blade_rbt, function(mat) {getPolarAngle(mat[1:3, 2])}),
-           sapply(cam_to_blade_rbt, function(mat) {getAzimuthSin(mat[1:3, 3], projection.direction)})
+           sapply(cam_to_blade_rbt, function(mat) {getAzimuthSin(mat[1:3, 3], projection.direction)}),
+           sapply(cam_to_blade_rbt, function(mat) {getDistance(mat[1:2, 4])})
        )
     ]
 
-plot(coords.leading.edge$x, coords.leading.edge$y, type = "l")
+plot(coords.leading.edge$x, coords.leading.edge$y, type = "b", asp = 1)
+
+coords.leading.edge$z <- coords.leading.edge$z - tan(coords.leading.edge$alpha)*coords.leading.edge$distance
 
 trans <- c(2728, 1816)
 
@@ -79,6 +88,7 @@ scaleFactor <- cos(coords.leading.edge$alpha[21]) * snapshot20_21_z_delta / snap
 # coords.leading.edge$z <- coords.leading.edge$z - tan(coords.leading.edge$alpha)*distanceToBlade
 
 # le.projection.center = c(8.5, 0.0)
+
 # le.projection.direction = c(-1,0,0)
 
 # FlipY <- matrix(c(1,0,0,0,
@@ -98,7 +108,7 @@ ProjectionZ <- matrix(c(1,0,0,0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
 
-getTransformation <- function(alpha, R, xShift, azSin) {
+getTransformation <- function(alpha, R, xShift, azSin, distance) {
     ReconstructionY <- matrix(c(1,0,0,0,
                                 0,1,tan(alpha),-tan(alpha)/R,
                                 0,0,0,0,
@@ -112,23 +122,57 @@ getTransformation <- function(alpha, R, xShift, azSin) {
     Unshift <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,1,0,
-                        (azSin*distanceToBlade)/scaleFactor,0,0,1),
+                        (azSin*distance)/scaleFactor,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
+    distanceScaleFactor = distance/distanceToBlade
+    AlignDistance <- matrix(c(distanceScaleFactor,0,0,0,
+                              0,distanceScaleFactor,0,0,
+                              0,0,1,0,
+                              0,0,0,1),
+                            nrow = 4, ncol = 4, byrow = T)
 
     Transformation <- ShiftToImgCenter %*%
                         # FlipY %*%
                         ReconstructionY %*%
                         RotateX %*%
                         Unshift %*%
+                        AlignDistance %*%
                         ProjectionZ %*%
                         # FlipY %*%
                         ShiftToImgTopLeft
     (Transformation/Transformation[4,4])[-3,-3]
 }
 
-coords.leading.edge[,  transformation := mapply(function(angle, ySh, azSin) {getTransformation(angle, R, ySh, azSin)}, alpha, y, azimuth, SIMPLIFY = FALSE)]
+coords.leading.edge[,  transformation := mapply(
+        function(angle, ySh, azSin, dist) {getTransformation(angle, R, ySh, azSin, dist)},
+        alpha,
+        y,
+        azimuth,
+        distance,
+        SIMPLIFY = FALSE
+    )]
 coords.leading.edge[,  cam_to_blade_rbt := NULL]
 coords.leading.edge[,  azimuth := NULL]
+coords.leading.edge[,  distance := NULL]
+coords.leading.edge[,  x := NULL]
+coords.leading.edge[,  y := NULL]
+coords.leading.edge[, top := sapply(
+    transformation,
+    function(mat) {
+        t = t(c(2728, 0, 1)) %*% mat
+        (t/t[1,3])[1,2]
+    }
+)]
+coords.leading.edge[, bottom := sapply(
+    transformation,
+    function(mat) {
+        t = t(c(2728, 3632, 1)) %*% mat
+        (t/t[1,3])[1,2]
+    }
+)]
+
+colOrder <- c("file", "top", "bottom", "z", "alpha", "transformation")
+setcolorder(coords.leading.edge, colOrder)
 
 # coords.leading.edge$transformation[10]
 
@@ -140,30 +184,51 @@ projection.direction = c(0,-1)
 data.suction.side <- data.suction.side[order(file)]
 coords.suction.side <- data.suction.side[, .(file, cam_to_blade_rbt)]
 coords.suction.side[,
-                    c("x", "y", "z", "alpha", "azimuth") := .(
+                    c("x", "y", "z", "alpha", "azimuth", "distance") := .(
                         sapply(cam_to_blade_rbt, function(mat) {mat[1, 4]}),
                         sapply(cam_to_blade_rbt, function(mat) {mat[2, 4]}),
                         sapply(cam_to_blade_rbt, function(mat) {mat[3, 4]}),
                         sapply(cam_to_blade_rbt, function(mat) {getPolarAngle(mat[1:3, 2])}),
-                        sapply(cam_to_blade_rbt, function(mat) {getAzimuthSin(mat[1:3, 3], projection.direction)})
+                        sapply(cam_to_blade_rbt, function(mat) {getAzimuthSin(mat[1:3, 3], projection.direction)}),
+                        sapply(cam_to_blade_rbt, function(mat) {getDistance(mat[1:2, 4])})
                     )
                    ]
 
-plot(coords.suction.side$x, coords.suction.side$y, type = "l")
+plot(coords.suction.side$x, coords.suction.side$y, type = "b", asp = 1)
 
 # coords.suction.side$z <- coords.suction.side$z - tan(coords.suction.side$alpha)*distanceToBlade
-coords.suction.side$z <- coords.suction.side$z - tan(coords.suction.side$alpha)*(((coords.suction.side$x - 1)^2 + (coords.suction.side$y - 0.5)^2)^0.5)
+coords.suction.side$z <- coords.suction.side$z - tan(coords.suction.side$alpha)*coords.suction.side$distance
 # ((coords.suction.side$x - 1)^2 + (coords.suction.side$y - 0.5)^2)^0.5
 coords.suction.side[,
                     transformation := mapply(
-                        function(angle, xSh, azSin) {getTransformation(angle, R, ySh, azSin)},
+                        function(angle, ySh, azSin, dist) {getTransformation(angle, R, ySh, azSin, dist)},
                         alpha,
-                        x,
+                        y,
                         azimuth,
+                        distance,
                         SIMPLIFY = FALSE
                     )]
 coords.suction.side[,  cam_to_blade_rbt := NULL]
 coords.suction.side[,  azimuth := NULL]
+coords.suction.side[,  distance := NULL]
+coords.suction.side[,  x := NULL]
+coords.suction.side[,  y := NULL]
+coords.suction.side[, top := sapply(
+    transformation,
+    function(mat) {
+        t = t(c(2728, 0, 1)) %*% mat
+        (t/t[1,3])[1,2]
+    }
+)]
+coords.suction.side[, bottom := sapply(
+    transformation,
+    function(mat) {
+        t = t(c(2728, 3632, 1)) %*% mat
+        (t/t[1,3])[1,2]
+    }
+)]
+
+setcolorder(coords.suction.side, colOrder)
 
 fwrite(coords.suction.side, file = "data/suction-side/metadata.csv")
 
@@ -182,7 +247,7 @@ coords.trailing.edge[,
                     )
                     ]
 
-plot(coords.trailing.edge$x, coords.trailing.edge$y, type = "l")
+plot(coords.trailing.edge$x, coords.trailing.edge$y, type = "b", asp = 1)
 
 # coords.trailing.edge$z <- coords.trailing.edge$z - tan(coords.trailing.edge$alpha)*distanceToBlade
 coords.trailing.edge[,
@@ -213,7 +278,7 @@ coords.pressure.side[,
                      )
                      ]
 
-plot(coords.pressure.side$x, coords.pressure.side$y, type = "l")
+plot(coords.pressure.side$x, coords.pressure.side$y, type = "b", asp = 1)
 
 # coords.pressure.side$z <- coords.pressure.side$z - tan(coords.pressure.side$alpha)*distanceToBlade
 coords.pressure.side[,
