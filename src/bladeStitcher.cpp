@@ -28,7 +28,7 @@ void BladeStitcher::stitch(const std::string side)
         if (!imwrite( outputPath + imageMetadata.file, img_warp)) {
             std::cerr << "ERROR: Can't save to " << outputPath << imageMetadata.file << std::endl;
         }
-        if (resultWidth < img_warp.cols) {
+        if (resultWidth < img_warp.cols && img_warp.cols < 6000) {
             resultWidth = img_warp.cols;
         }
     }
