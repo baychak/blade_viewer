@@ -9,20 +9,20 @@
 struct ImageMetadata
 {
     std::string file;
-    double top;
-    double bottom;
     double z;
     double alpha;
+    cv::Point2d shift;
+    cv::Point2d size;
+    cv::Point2d center;
     cv::Mat transformation;
 };
 
 class CsvReader
 {
 public:
-    CsvReader();
+    std::vector<ImageMetadata> readCSV(const std::string &file);
 
-    std::vector<ImageMetadata> readCSV(std::ifstream &in);
 private:
     ImageMetadata readCSVRow(std::string &row);
-    std::string getToken(std::string &row, std::string delimiter);
+    std::string getToken(std::string &row, const std::string &delimiter);
 };

@@ -56,6 +56,32 @@ getDistance <- function(xyPoint) {
     sqrt(sum((xyPoint-object.center)^2))
 }
 
+imageSize <- c(5456, 3632)
+
+trans <- imageSize/2
+
+getWarpedImageParameters <- function(transformation, imageSize) {
+    imgPoints <- matrix(c(-trans[1],-trans[2],1,
+                          trans[1],-trans[2],1,
+                          trans[1],trans[2],1,
+                          -trans[1],trans[2],1,
+                           0,0,1),
+                         nrow = 5, ncol = 3, byrow = T)
+    imgPoints <- imgPoints %*% transformation
+    imgPoints <- imgPoints / imgPoints[,3]
+    minX <- min(imgPoints[,1])
+    maxX <- max(imgPoints[,1])
+    minY <- min(imgPoints[,2])
+    maxY <- max(imgPoints[,2])
+    shift <- c(minX, minY)
+    print(shift)
+    size <- c(maxX, maxY) - shift
+    center <- imgPoints[5,1:2] - shift
+    list(shift = shift, size = size, center = center)
+}
+
+getWarpedImageParameters(ttt, imageSize)
+
 ###### leading-edge
 data.leading.edge <- metadata[blade_side == "leading-edge"]
 projection.direction = c(-1,0)
@@ -76,7 +102,7 @@ plot(coords.leading.edge$x, coords.leading.edge$y, type = "b", asp = 1)
 
 coords.leading.edge$z <- coords.leading.edge$z - tan(coords.leading.edge$alpha)*coords.leading.edge$distance
 
-trans <- c(2728, 1816)
+# trans <- c(2728, 1816)
 
 distanceToBlade <- 7.0 # 20 and 21 snapshot of leading edge
 snapshot20_21_z_delta <- coords.leading.edge$z[21] - coords.leading.edge$z[20] # in meters
@@ -96,19 +122,18 @@ scaleFactor <- cos(coords.leading.edge$alpha[21]) * snapshot20_21_z_delta / snap
 #                   0,0,1,0,
 #                   0,0,0,1),
 #                 nrow = 4, ncol = 4, byrow = T)
-ShiftToImgCenter <- matrix(c(1,0,0,0,
-                        0,1,0,0,
-                        0,0,1,0,
-                        -trans[1],-trans[2],0,1),
-                      nrow = 4, ncol = 4, byrow = T)
-ShiftToImgTopLeft <- solve(ShiftToImgCenter)
+ShiftToImgCenter <- matrix(c(1,0,0,
+                        0,1,0,
+                        -trans[1],-trans[2],1),
+                      nrow = 3, ncol = 3, byrow = T)
+# ShiftToImgTopLeft <- solve(ShiftToImgCenter)
 ProjectionZ <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,0,0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
 
-getTransformation <- function(alpha, R, xShift, azSin, distance) {
+getTransformationInfo <- function(alpha, R, xShift, azSin, distance) {
     ReconstructionY <- matrix(c(1,0,0,0,
                                 0,1,tan(alpha),-tan(alpha)/R,
                                 0,0,0,0,
@@ -131,48 +156,64 @@ getTransformation <- function(alpha, R, xShift, azSin, distance) {
                               0,0,0,1),
                             nrow = 4, ncol = 4, byrow = T)
 
-    Transformation <- ShiftToImgCenter %*%
+    Transformation <-   # ShiftToImgCenter %*%
                         # FlipY %*%
                         ReconstructionY %*%
                         RotateX %*%
                         Unshift %*%
                         AlignDistance %*%
-                        ProjectionZ %*%
+                        ProjectionZ
                         # FlipY %*%
+                        # ShiftToImgTopLeft
+    Transformation <- (Transformation/Transformation[4,4])[-3,-3]
+    imgParams <- getWarpedImageParameters(Transformation, imageSize)
+    ShiftToImgTopLeft <- matrix(c(1,0,0,
+                                  0,1,0,
+                                  -imgParams$shift[1],-imgParams$shift[2],1),
+                                nrow = 3, ncol = 3, byrow = T)
+
+    FullTransformation <- ShiftToImgCenter %*%
+                        Transformation %*%
                         ShiftToImgTopLeft
-    (Transformation/Transformation[4,4])[-3,-3]
+    list(shift = imgParams$shift, size = imgParams$size, center = imgParams$center, transformation = FullTransformation)
 }
 
-coords.leading.edge[,  transformation := mapply(
-        function(angle, ySh, azSin, dist) {getTransformation(angle, R, ySh, azSin, dist)},
-        alpha,
-        y,
-        azimuth,
-        distance,
-        SIMPLIFY = FALSE
-    )]
-coords.leading.edge[,  cam_to_blade_rbt := NULL]
-coords.leading.edge[,  azimuth := NULL]
-coords.leading.edge[,  distance := NULL]
-coords.leading.edge[,  x := NULL]
-coords.leading.edge[,  y := NULL]
-coords.leading.edge[, top := sapply(
-    transformation,
-    function(mat) {
-        t = t(c(2728, 0, 1)) %*% mat
-        (t/t[1,3])[1,2]
-    }
-)]
-coords.leading.edge[, bottom := sapply(
-    transformation,
-    function(mat) {
-        t = t(c(2728, 3632, 1)) %*% mat
-        (t/t[1,3])[1,2]
-    }
-)]
+coords.leading.edge[,
+        transformationInfo := mapply(
+            function(angle, ySh, azSin, dist) {getTransformationInfo(angle, R, ySh, azSin, dist)},
+            alpha,
+            y,
+            azimuth,
+            distance,
+            SIMPLIFY = FALSE)]
 
-colOrder <- c("file", "top", "bottom", "z", "alpha", "transformation")
-setcolorder(coords.leading.edge, colOrder)
+coords.leading.edge[,
+        c("shift", "size", "center", "transformation") := .(
+            lapply(transformationInfo, function(el) {el$shift}),
+            lapply(transformationInfo, function(el) {el$size}),
+            lapply(transformationInfo, function(el) {el$center}),
+            lapply(transformationInfo, function(el) {el$transformation})
+        )
+    ]
+coords.leading.edge[, c("transformationInfo", "cam_to_blade_rbt", "azimuth", "distance", "x", "y") := NULL]
+
+# coords.leading.edge[, top := sapply(
+#     transformation,
+#     function(mat) {
+#         t = t(c(2728, 0, 1)) %*% mat
+#         (t/t[1,3])[1,2]
+#     }
+# )]
+# coords.leading.edge[, bottom := sapply(
+#     transformation,
+#     function(mat) {
+#         t = t(c(2728, 3632, 1)) %*% mat
+#         (t/t[1,3])[1,2]
+#     }
+# )]
+
+# colOrder <- c("file", "top", "bottom", "z", "alpha", "transformation")
+# setcolorder(coords.leading.edge, colOrder)
 
 # coords.leading.edge$transformation[10]
 
