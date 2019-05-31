@@ -56,36 +56,15 @@ getPitchRollAngles <- function(mat) {
     x <- mat[1:3,1]
     y <- mat[1:3,2]
     z <- mat[1:3,3]
-    print(x)
-    print(y)
-    print(z)
     k <- c(0,0,-1)
-    print(xprod(z,k))
-    f <- c(z[1]*z[2], z[2]*z[3], -(z[1]^2 + z[2]^2))
-    # f <- normalize(c(z[1]/z[2], 1, -(z[1]^2 + z[2]^2)/(z[2]*z[3])))
-    print(f)
+    f <- c(z[1]*z[3], z[2]*z[3], -(z[1]^2 + z[2]^2))
     roll <- getAngle(y, f, z)
-    print(roll)
-    rolMat <- matrix(c(cos(roll),-sin(roll),0,
+    x <- x %*% matrix(c(cos(roll),-sin(roll),0,
                     sin(roll),cos(roll),0,
                     0,0,1),
                   nrow = 3, ncol = 3, byrow = T)
-    str(rolMat)
-    str(x)
-    x <- x %*% rolMat
-    # print(mat)
     pitch <- getAngle(f, k, x)
     c(pitch, roll)
-}
-
-m = coords.leading.edge$cam_to_blade_rbt[[10]]
-
-getPitchRollAngles(m)
-
-getPolarAngle <- function(yVect) {
-    z <- c(0,0,1)
-    yVect <- -yVect/sum(yVect^2)^0.5
-    acos(z%*%yVect)
 }
 
 sides <- c("leading-edge", "suction-side", "trailing-edge", "pressure-side")
@@ -132,16 +111,17 @@ prepareSideData <- function(side, direction) {
     data <- data[order(file)]
     coords <- data[, .(file, cam_to_blade_rbt)]
     coords[,
-            c("x", "y", "z", "alpha", "azimuth", "distance") := .(
+            c("x", "y", "z", "pitch", "roll", "azimuth", "distance") := .(
                 sapply(cam_to_blade_rbt, function(mat) {mat[1, 4]}),
                 sapply(cam_to_blade_rbt, function(mat) {mat[2, 4]}),
                 sapply(cam_to_blade_rbt, function(mat) {mat[3, 4]}),
-                sapply(cam_to_blade_rbt, function(mat) {getPolarAngle(mat[1:3, 2])}),
+                sapply(cam_to_blade_rbt, function(mat) {getPitchRollAngles(mat)[1]}),
+                sapply(cam_to_blade_rbt, function(mat) {getPitchRollAngles(mat)[2]}),
                 sapply(cam_to_blade_rbt, function(mat) {getAzimuthSin(mat[1:3, 3], direction)}),
                 sapply(cam_to_blade_rbt, function(mat) {getDistance(mat[1:2, 4])})
             )
           ]
-    coords$z <- coords$z - tan(coords$alpha)*coords$distance
+    coords$z <- coords$z - tan(coords$pitch)*coords$distance
     plot(coords$x, coords$y, type = "b", asp = 1)
     coords
 }
@@ -152,10 +132,10 @@ distanceToBlade <- 7.0 # 20 and 21 snapshot of leading edge
 snapshot20_21_z_delta <- coords.leading.edge$z[21] - coords.leading.edge$z[20] # in meters
 snapshot20_21_Ydelta <- 3565 - 407 # in pixels
 
-R <- snapshot20_21_Ydelta / (cos(coords.leading.edge$alpha[21])^2 * snapshot20_21_z_delta/distanceToBlade) # const for camera
-# R <- 0.035
+R <- snapshot20_21_Ydelta / (cos(coords.leading.edge$pitch[21])^2 * snapshot20_21_z_delta/distanceToBlade) # const for camera (pixels)
+# R <- 0.035 # in meters (23.2 x 15.4)
 
-scaleFactor <- cos(coords.leading.edge$alpha[21]) * snapshot20_21_z_delta / snapshot20_21_Ydelta # meter (in object plane) per pixel on corrected image
+scaleFactor <- cos(coords.leading.edge$pitch[21]) * snapshot20_21_z_delta / snapshot20_21_Ydelta # meter (in object plane) per pixel on corrected image
 
 ShiftToImgCenter <- matrix(c(1,0,0,
                         0,1,0,
@@ -167,21 +147,26 @@ ProjectionZ <- matrix(c(1,0,0,0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
 
-getTransformationInfo <- function(alpha, R, xShift, azSin, distance) {
+getTransformationInfo <- function(roll, pitch, R, xShift, azSin, distance) {
     ReconstructionY <- matrix(c(1,0,0,0,
-                                0,1,tan(alpha),-tan(alpha)/R,
+                                0,1,tan(pitch),-tan(pitch)/R,
                                 0,0,0,0,
                                 0,0,0,1),
                               nrow = 4, ncol = 4, byrow = T)
+    RotateZ <- matrix(c(cos(roll),-sin(roll),0,0,
+                        sin(roll),cos(roll),0,0,
+                        0,0,1,0,
+                        0,0,0,1),
+                      nrow = 4, ncol = 4, byrow = T)
     RotateX <- matrix(c(1,0,0,0,
-                        0,cos(alpha),-sin(alpha),0,
-                        0,sin(alpha),cos(alpha),0,
+                        0,cos(pitch),-sin(pitch),0,
+                        0,sin(pitch),cos(pitch),0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     Unshift <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,1,0,
-                        (azSin*distance * 0 - xShift * 0)/scaleFactor,0,0,1),
+                        (azSin*distance - xShift * 0)/scaleFactor,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     distanceScaleFactor = distance/distanceToBlade
     AlignDistance <- matrix(c(distanceScaleFactor,0,0,0,
@@ -190,7 +175,8 @@ getTransformationInfo <- function(alpha, R, xShift, azSin, distance) {
                               0,0,0,1),
                             nrow = 4, ncol = 4, byrow = T)
 
-    Transformation <-   ReconstructionY %*%
+    Transformation <-   RotateZ %*%
+                        ReconstructionY %*%
                         RotateX %*%
                         Unshift %*%
                         AlignDistance %*%
@@ -212,8 +198,9 @@ getTransformationInfo <- function(alpha, R, xShift, azSin, distance) {
 saveAndShowStitchData <- function(data, side) {
     data[,
         transformationInfo := mapply(
-            function(angle, ySh, azSin, dist) {getTransformationInfo(angle, R, ySh, azSin, dist)},
-            alpha,
+            function(rAngle, pAngle, ySh, azSin, dist) {getTransformationInfo(rAngle, pAngle, R, ySh, azSin, dist)},
+            roll,
+            pitch,
             x,
             azimuth,
             distance,
@@ -229,7 +216,7 @@ saveAndShowStitchData <- function(data, side) {
         )
         ]
     debugData <- data.table(data)
-    data[, c("transformationInfo", "cam_to_blade_rbt", "azimuth", "distance", "x", "y") := NULL]
+    data[, c("transformationInfo", "cam_to_blade_rbt", "roll", "azimuth", "distance", "x", "y") := NULL]
     fwrite(data, file = paste0("data/", side, "/metadata.csv"))
     debugData
 }
@@ -249,7 +236,7 @@ coords.pressure.side <- prepareSideData("pressure-side", directions$`pressure-si
 ps <- saveAndShowStitchData(coords.pressure.side, "pressure-side")
 
 ###### make and run blade_viewer
-# system2("bash", args = c("run_blade_viewer.sh", toString(scaleFactor)))
+system2("bash", args = c("run_blade_viewer.sh", toString(scaleFactor)))
 
 
 
