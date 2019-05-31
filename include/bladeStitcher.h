@@ -10,10 +10,12 @@ using namespace cv;
 class BladeStitcher
 {
 public:
+    BladeStitcher(double scaleFactor);
     void stitch(const std::string side); 
 
 private:
     Rect findImageROI(const Mat &img, const Mat &dst, const Point2i &shift);
 
     CsvReader mCsvReader;
+    double mScaleFactor;
 };

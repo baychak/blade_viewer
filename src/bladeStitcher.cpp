@@ -7,8 +7,11 @@
 #include "opencv2/imgcodecs.hpp"
 #include <iostream>
 
-double scaleFactor = 0.0007120899;
 std::string resultPath = "../result/";
+
+BladeStitcher::BladeStitcher(double scaleFactor) : mScaleFactor(scaleFactor)
+{
+}
 
 void BladeStitcher::stitch(const std::string side)
 {
@@ -28,20 +31,20 @@ void BladeStitcher::stitch(const std::string side)
         if (!imwrite( outputPath + imageMetadata.file, img_warp)) {
             std::cerr << "ERROR: Can't save to " << outputPath << imageMetadata.file << std::endl;
         }
-        if (resultWidth < img_warp.cols && img_warp.cols < 6000) {
+        if (resultWidth < img_warp.cols && img_warp.cols < 9000) {
             resultWidth = img_warp.cols;
         }
     }
 
     auto itLastMetadata = metaData.rbegin();
     double lastZ = itLastMetadata->z;
-    int resultHeight = (int)((lastZ - metaData.begin()->z)/scaleFactor) + 5000;
+    int resultHeight = (int)((lastZ - metaData.begin()->z)/mScaleFactor) + 5000;
     Mat result = Mat::zeros(resultHeight, resultWidth, CV_8UC3);
     
     Point2d resultShift(resultWidth/2.0, -itLastMetadata->shift.y);
     Mat imgROI;
     for (std::vector<ImageMetadata>::reverse_iterator it = metaData.rbegin(); it != metaData.rend(); ++it ) {
-        int delta = (lastZ - it->z)/scaleFactor;
+        int delta = (lastZ - it->z)/mScaleFactor;
         img = imread( outputPath + it->file, IMREAD_COLOR );
         Point2i imgShift = resultShift + it->shift;
         imgROI = img(findImageROI(img, result, imgShift));
@@ -74,7 +77,7 @@ Rect BladeStitcher::findImageROI(const Mat &img, const Mat &dst, const Point2i &
             std::max(std::min(dst.rows - shift.y - roiXY.y, img.rows - roiXY.y), 0)
         );
 
-    std::cout << "imgShift ------------ " << shift << std::endl;
+    std::cout << "shift ------- " << shift << std::endl;
     std::cout << "size ------------ " << size << std::endl;
     return Rect(roiXY, size);
 }

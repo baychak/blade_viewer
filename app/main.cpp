@@ -1,11 +1,20 @@
 #include <string>
+#include <iostream>
 
 #include "bladeStitcher.h"
 
-int main()
+int main(int argc, char* argv[])
 {
+    double scaleFactor;
+    if (argc == 1)
+    {
+        std::cout << "Use default scale factor" << std::endl;
+        scaleFactor = 0.0007120899;
+    } else {
+        scaleFactor = std::stod(argv[1]);
+    }
 
-    BladeStitcher stitcher;
+    BladeStitcher stitcher(scaleFactor);
 
     stitcher.stitch("leading-edge");
     stitcher.stitch("suction-side");
