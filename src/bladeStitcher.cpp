@@ -51,6 +51,13 @@ void BladeStitcher::stitch(const std::string side)
         imgROI = img(findROIRect(img, result, imgShift));
         imgShift.x = std::min(std::max(imgShift.x, 0), result.cols);
         imgShift.y = std::min(std::max(imgShift.y, 0), result.rows);
+
+        Mat black(img.rows, img.cols, img.type(), cv::Scalar::all(0));
+        Mat mask(img.rows, img.cols, CV_8UC1, cv::Scalar(0));
+
+        // co_ordinates
+        drawContours(mask, std::vector(it->contour), 0, Scalar(255), FILLED, 8);
+
         imgROI.copyTo(result(Rect(imgShift, imgROI.size())));
         resultShift.y += delta;
         lastZ = it->z;
