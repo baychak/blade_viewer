@@ -17,9 +17,9 @@ int main(int argc, char* argv[])
     BladeStitcher stitcher(scaleFactor);
 
     stitcher.stitch("leading-edge");
-    //stitcher.stitch("suction-side");
-    //stitcher.stitch("trailing-edge");
-    //stitcher.stitch("pressure-side");
+    stitcher.stitch("suction-side");
+    stitcher.stitch("trailing-edge");
+    stitcher.stitch("pressure-side");
 
     return 0;
 }

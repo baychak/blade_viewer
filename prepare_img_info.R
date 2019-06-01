@@ -84,27 +84,7 @@ getDistance <- function(xyPoint) {
     sqrt(sum((xyPoint-object.center)^2))
 }
 
-imageSize <- c(5456, 3632)
-trans <- imageSize/2
-
-getWarpedImageParameters <- function(transformation, imageSize) {
-    imgPoints <- matrix(c(-trans[1],-trans[2],1,
-                          trans[1],-trans[2],1,
-                          trans[1],trans[2],1,
-                          -trans[1],trans[2],1,
-                           0,0,1),
-                         nrow = 5, ncol = 3, byrow = T)
-    imgPoints <- imgPoints %*% transformation
-    imgPoints <- imgPoints / imgPoints[,3]
-    minX <- min(imgPoints[,1])
-    maxX <- max(imgPoints[,1])
-    minY <- min(imgPoints[,2])
-    maxY <- max(imgPoints[,2])
-    shift <- c(minX, minY)
-    size <- c(maxX, maxY) - shift
-    center <- imgPoints[5,1:2] - shift
-    list(shift = shift, size = size, center = center)
-}
+# imageSize <- c(5456, 3632)
 
 prepareSideData <- function(side, direction) {
     data <- metadata[blade_side == side]
@@ -137,17 +117,13 @@ R <- snapshot20_21_Ydelta / (cos(coords.leading.edge$pitch[21])^2 * snapshot20_2
 
 scaleFactor <- cos(coords.leading.edge$pitch[21]) * snapshot20_21_z_delta / snapshot20_21_Ydelta # meter (in object plane) per pixel on corrected image
 
-ShiftToImgCenter <- matrix(c(1,0,0,
-                        0,1,0,
-                        -trans[1],-trans[2],1),
-                      nrow = 3, ncol = 3, byrow = T)
 ProjectionZ <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,0,0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
 
-getTransformationInfo <- function(roll, pitch, R, xShift, azSin, distance) {
+getTransformation <- function(roll, pitch, R, xShift, azSin, distance) {
     ReconstructionY <- matrix(c(1,0,0,0,
                                 0,1,tan(pitch),-tan(pitch)/R,
                                 0,0,0,0,
@@ -183,22 +159,13 @@ getTransformationInfo <- function(roll, pitch, R, xShift, azSin, distance) {
                         ProjectionZ
 
     Transformation <- (Transformation/Transformation[4,4])[-3,-3]
-    imgParams <- getWarpedImageParameters(Transformation, imageSize)
-    ShiftToImgTopLeft <- matrix(c(1,0,0,
-                                  0,1,0,
-                                  -imgParams$shift[1],-imgParams$shift[2],1),
-                                nrow = 3, ncol = 3, byrow = T)
-
-    FullTransformation <- ShiftToImgCenter %*%
-                        Transformation %*%
-                        ShiftToImgTopLeft
-    list(shift = imgParams$shift, size = imgParams$size, center = imgParams$center, transformation = Transformation)
+    Transformation
 }
 
 saveAndShowStitchData <- function(data, side) {
     data[,
-        transformationInfo := mapply(
-            function(rAngle, pAngle, ySh, azSin, dist) {getTransformationInfo(rAngle, pAngle, R, ySh, azSin, dist)},
+        transformation := mapply(
+            function(rAngle, pAngle, ySh, azSin, dist) {getTransformation(rAngle, pAngle, R, ySh, azSin, dist)},
             roll,
             pitch,
             x,
@@ -207,16 +174,8 @@ saveAndShowStitchData <- function(data, side) {
             SIMPLIFY = FALSE)
         ]
 
-    data[,
-        c("shift", "size", "center", "transformation") := .(
-            lapply(transformationInfo, function(el) {el$shift}),
-            lapply(transformationInfo, function(el) {el$size}),
-            lapply(transformationInfo, function(el) {el$center}),
-            lapply(transformationInfo, function(el) {el$transformation})
-        )
-        ]
     debugData <- data.table(data)
-    data[, c("transformationInfo", "cam_to_blade_rbt", "roll", "azimuth", "distance", "x", "y") := NULL]
+    data[, c("cam_to_blade_rbt", "roll", "azimuth", "distance", "x", "y") := NULL]
     fwrite(data, file = paste0("data/", side, "/metadata.csv"))
     debugData
 }
