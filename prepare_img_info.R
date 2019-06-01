@@ -192,7 +192,7 @@ getTransformationInfo <- function(roll, pitch, R, xShift, azSin, distance) {
     FullTransformation <- ShiftToImgCenter %*%
                         Transformation %*%
                         ShiftToImgTopLeft
-    list(shift = imgParams$shift, size = imgParams$size, center = imgParams$center, transformation = FullTransformation)
+    list(shift = imgParams$shift, size = imgParams$size, center = imgParams$center, transformation = Transformation)
 }
 
 saveAndShowStitchData <- function(data, side) {

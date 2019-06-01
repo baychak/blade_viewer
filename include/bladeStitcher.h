@@ -15,7 +15,8 @@ public:
 
 private:
     Rect findImageROI(const Mat &img, const Mat &dst, const Point2i &shift);
-
+    void findWarpedImageParameters(ImageMetadata &imageMetadata, const Size &size);
+    
     CsvReader mCsvReader;
     double mScaleFactor;
 };
