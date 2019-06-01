@@ -48,7 +48,7 @@ void BladeStitcher::stitch(const std::string side)
         int delta = (lastZ - it->z)/mScaleFactor;
         img = imread( outputPath + it->file, IMREAD_COLOR );
         Point2i imgShift = resultShift - it->shift;
-        imgROI = img(findImageROI(img, result, imgShift));
+        imgROI = img(findROIRect(img, result, imgShift));
         imgShift.x = std::min(std::max(imgShift.x, 0), result.cols);
         imgShift.y = std::min(std::max(imgShift.y, 0), result.rows);
         imgROI.copyTo(result(Rect(imgShift, imgROI.size())));
@@ -65,7 +65,7 @@ void BladeStitcher::stitch(const std::string side)
         }
 }
 
-Rect BladeStitcher::findImageROI(const Mat &img, const Mat &dst, const Point2i &shift)
+Rect BladeStitcher::findROIRect(const Mat &img, const Mat &dst, const Point2i &shift)
 {
     Point2i roiXY;
     roiXY.x = (shift.x < 0) ? -shift.x : 0;
@@ -81,6 +81,23 @@ Rect BladeStitcher::findImageROI(const Mat &img, const Mat &dst, const Point2i &
     std::cout << "------ shift: " << shift << "    size: " << size << std::endl;
     return Rect(roiXY, size);
 }
+
+// std::vector<Point2d> BladeStitcher::findROIContour(const Mat &img, const Mat &dst, const Point2i &shift)
+// {
+//     Point2i roiXY;
+//     roiXY.x = (shift.x < 0) ? -shift.x : 0;
+//     roiXY.y = (shift.y < 0) ? -shift.y : 0;
+//     if (shift.x < -img.cols) roiXY.x = img.cols;
+//     if (shift.y < -img.rows) roiXY.y = img.rows;
+
+//     Size size(
+//             std::max(std::min(dst.cols - shift.x - roiXY.x, img.cols - roiXY.x), 0), 
+//             std::max(std::min(dst.rows - shift.y - roiXY.y, img.rows - roiXY.y), 0)
+//         );
+
+//     std::cout << "------ shift: " << shift << "    size: " << size << std::endl;
+//     return Rect(roiXY, size);
+// }
 
 void BladeStitcher::findWarpedImageParameters(ImageMetadata &imageMetadata, const Size &size)
 {
@@ -110,6 +127,12 @@ void BladeStitcher::findWarpedImageParameters(ImageMetadata &imageMetadata, cons
 
     imageMetadata.transformation = shiftImgFromCenter * imageMetadata.transformation * shiftImgToCenter;
     imageMetadata.transformation = imageMetadata.transformation / imageMetadata.transformation.at<double>(2,2);
+
+    for (size_t i = 0; i < 4; i++)
+    {
+        imageMetadata.contour.emplace_back(Point2d(contour.at<double>(0,i), contour.at<double>(1,i)));
+    }
+
 }
 
 
