@@ -123,11 +123,6 @@ void BladeStitcher::findWarpedImageParameters(ImageMetadata &imageMetadata, cons
     {
         imageMetadata.contour.emplace_back(Point2i(contour.at<double>(0,i), contour.at<double>(1,i)));
     }
-    for (size_t i = 0; i < 4; i++)
-    {
-        std::cout << imageMetadata.contour[i] << std::endl;
-    }
-
 }
 
 
