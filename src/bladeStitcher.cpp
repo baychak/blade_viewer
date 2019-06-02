@@ -55,8 +55,9 @@ void BladeStitcher::stitch(const std::string side)
         Mat black(img.rows, img.cols, img.type(), cv::Scalar::all(0));
         Mat mask(img.rows, img.cols, CV_8UC1, cv::Scalar(0));
 
-        // co_ordinates
-        drawContours(mask, std::vector(it->contour), 0, Scalar(255), FILLED, 8);
+        std::vector<std::vector<Point2i>> contours({it->contour});
+        //std::vector<std::vector<Point2i>> contours = {{{1,1}, {1, 100}, {60,50}}};
+        drawContours(mask, contours, 0, Scalar(255), FILLED, 8);
 
         imgROI.copyTo(result(Rect(imgShift, imgROI.size())));
         resultShift.y += delta;
@@ -135,9 +136,14 @@ void BladeStitcher::findWarpedImageParameters(ImageMetadata &imageMetadata, cons
     imageMetadata.transformation = shiftImgFromCenter * imageMetadata.transformation * shiftImgToCenter;
     imageMetadata.transformation = imageMetadata.transformation / imageMetadata.transformation.at<double>(2,2);
 
+    contour = shiftImgFromCenter * contour;
     for (size_t i = 0; i < 4; i++)
     {
-        imageMetadata.contour.emplace_back(Point2d(contour.at<double>(0,i), contour.at<double>(1,i)));
+        imageMetadata.contour.emplace_back(Point2i(contour.at<double>(0,i), contour.at<double>(1,i)));
+    }
+    for (size_t i = 0; i < 4; i++)
+    {
+        std::cout << imageMetadata.contour[i] << std::endl;
     }
 
 }
