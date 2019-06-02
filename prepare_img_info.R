@@ -138,6 +138,16 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
                         0,sin(pitch),cos(pitch),0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
+    ReconstructionX <- matrix(c(1,0,-tan(yaw),tan(yaw)/R,
+                                0,1,0,0,
+                                0,0,0,0,
+                                0,0,0,1),
+                              nrow = 4, ncol = 4, byrow = T)
+    RotateY <- matrix(c(cos(yaw),0,-sin(yaw),0,
+                        0,1,0,0,
+                        sin(yaw),0,cos(yaw),0,
+                        0,0,0,1),
+                      nrow = 4, ncol = 4, byrow = T)
     Unshift <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,1,0,
@@ -153,7 +163,8 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
     Transformation <-   RotateZ %*%
                         ReconstructionY %*%
                         RotateX %*%
-                        Unshift %*%
+                        ReconstructionX %*%
+                        RotateY %*%
                         AlignDistance %*%
                         ProjectionZ
 
