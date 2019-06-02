@@ -10,11 +10,11 @@ struct ImageMetadata
 {
     std::string file;
     double z;
-    double alpha;
+    double pitch;
     cv::Point2d shift;
     cv::Point2d size;
-    cv::Point2d center;
     cv::Mat transformation;
+    std::vector<cv::Point2i> contour;
 };
 
 class CsvReader

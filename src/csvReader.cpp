@@ -38,16 +38,7 @@ ImageMetadata CsvReader::readCSVRow(std::string &row)
 
     metaData.file = getToken(row, ",");
     metaData.z = std::stod(getToken(row, ","));
-    metaData.alpha = std::stod(getToken(row, ","));
-
-    std::string point = getToken(row, ",");
-    metaData.shift = {std::stod(getToken(point, "|")), std::stod(getToken(point, "|"))};
-
-    point = getToken(row, ",");
-    metaData.size = {std::stod(getToken(point, "|")), std::stod(getToken(point, "|"))};
-
-    point = getToken(row, ",");
-    metaData.center = {std::stod(getToken(point, "|")), std::stod(getToken(point, "|"))};
+    metaData.pitch = std::stod(getToken(row, ","));
 
     std::string matrix = getToken(row, ",");
     cv::Mat transformMatrix = cv::Mat_<double>(3,3);
@@ -58,7 +49,7 @@ ImageMetadata CsvReader::readCSVRow(std::string &row)
     metaData.transformation = transformMatrix;
     // std::cout << "file " << metaData.file << std::endl;
     // std::cout << "z " << metaData.z << std::endl;
-    // std::cout << "alpha " << metaData.alpha << std::endl;
+    // std::cout << "pitch " << metaData.pitch << std::endl;
     // std::cout << "shift " << metaData.shift << std::endl;
     // std::cout << "size " << metaData.size << std::endl;
     // std::cout << "center " << metaData.center << std::endl;
