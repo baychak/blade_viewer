@@ -48,18 +48,17 @@ void BladeStitcher::stitch(const std::string side)
         int delta = (lastZ - it->z)/mScaleFactor;
         img = imread( outputPath + it->file, IMREAD_COLOR );
         Point2i imgShift = resultShift - it->shift;
-        imgROI = img(findROIRect(img, result, imgShift));
+        Rect roi = findROIRect(img, result, imgShift);
+        imgROI = img(roi);
+        Mat mask(img.rows, img.cols, CV_8UC1, cv::Scalar(0));
+        std::vector<std::vector<Point2i>> contours({it->contour});
+        drawContours(mask, contours, 0, Scalar(255), FILLED, 8);
+        Mat maskROI = mask(roi);
+
         imgShift.x = std::min(std::max(imgShift.x, 0), result.cols);
         imgShift.y = std::min(std::max(imgShift.y, 0), result.rows);
 
-        Mat black(img.rows, img.cols, img.type(), cv::Scalar::all(0));
-        Mat mask(img.rows, img.cols, CV_8UC1, cv::Scalar(0));
-
-        std::vector<std::vector<Point2i>> contours({it->contour});
-        //std::vector<std::vector<Point2i>> contours = {{{1,1}, {1, 100}, {60,50}}};
-        drawContours(mask, contours, 0, Scalar(255), FILLED, 8);
-
-        imgROI.copyTo(result(Rect(imgShift, imgROI.size())));
+        imgROI.copyTo(result(Rect(imgShift, imgROI.size())), maskROI);
         resultShift.y += delta;
         lastZ = it->z;
     }
@@ -89,23 +88,6 @@ Rect BladeStitcher::findROIRect(const Mat &img, const Mat &dst, const Point2i &s
     std::cout << "------ shift: " << shift << "    size: " << size << std::endl;
     return Rect(roiXY, size);
 }
-
-// std::vector<Point2d> BladeStitcher::findROIContour(const Mat &img, const Mat &dst, const Point2i &shift)
-// {
-//     Point2i roiXY;
-//     roiXY.x = (shift.x < 0) ? -shift.x : 0;
-//     roiXY.y = (shift.y < 0) ? -shift.y : 0;
-//     if (shift.x < -img.cols) roiXY.x = img.cols;
-//     if (shift.y < -img.rows) roiXY.y = img.rows;
-
-//     Size size(
-//             std::max(std::min(dst.cols - shift.x - roiXY.x, img.cols - roiXY.x), 0), 
-//             std::max(std::min(dst.rows - shift.y - roiXY.y, img.rows - roiXY.y), 0)
-//         );
-
-//     std::cout << "------ shift: " << shift << "    size: " << size << std::endl;
-//     return Rect(roiXY, size);
-// }
 
 void BladeStitcher::findWarpedImageParameters(ImageMetadata &imageMetadata, const Size &size)
 {

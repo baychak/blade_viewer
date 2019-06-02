@@ -14,6 +14,7 @@ struct ImageMetadata
     cv::Point2d shift;
     cv::Point2d size;
     cv::Mat transformation;
+    std::vector<cv::Point2i> contour;
 };
 
 class CsvReader
