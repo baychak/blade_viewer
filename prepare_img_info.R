@@ -68,14 +68,13 @@ getPitchRollAngles <- function(mat) {
 }
 
 sides <- c("leading-edge", "suction-side", "trailing-edge", "pressure-side")
-directions <- list(c(-1,0), c(0,-1), c(1,0), c(0,1))
+directions <- list(c(-1,0,0), c(0,-1,0), c(1,0,0), c(0,1,0))
 names(directions) <- sides
 
 
-getAzimuthSin <- function(zCamVector, mainDirection) {
-    zCamVector <- zCamVector[1:2]
-    zCamVector <- zCamVector/sum(zCamVector^2)^0.5
-    zCamVector[1]*mainDirection[2] - zCamVector[2]*mainDirection[1]
+getYawAngle <- function(zCamVector, mainDirection) {
+    zCamVector[3] <- 0
+    getAngle(zCamVector, mainDirection, c(0,0,-1))
 }
 
 object.center = c(1.0, 0.5)
@@ -91,13 +90,13 @@ prepareSideData <- function(side, direction) {
     data <- data[order(file)]
     coords <- data[, .(file, cam_to_blade_rbt)]
     coords[,
-            c("x", "y", "z", "pitch", "roll", "azimuth", "distance") := .(
+            c("x", "y", "z", "pitch", "roll", "yaw", "distance") := .(
                 sapply(cam_to_blade_rbt, function(mat) {mat[1, 4]}),
                 sapply(cam_to_blade_rbt, function(mat) {mat[2, 4]}),
                 sapply(cam_to_blade_rbt, function(mat) {mat[3, 4]}),
                 sapply(cam_to_blade_rbt, function(mat) {getPitchRollAngles(mat)[1]}),
                 sapply(cam_to_blade_rbt, function(mat) {getPitchRollAngles(mat)[2]}),
-                sapply(cam_to_blade_rbt, function(mat) {getAzimuthSin(mat[1:3, 3], direction)}),
+                sapply(cam_to_blade_rbt, function(mat) {getYawAngle(mat[1:3, 3], direction)}),
                 sapply(cam_to_blade_rbt, function(mat) {getDistance(mat[1:2, 4])})
             )
           ]
@@ -123,7 +122,7 @@ ProjectionZ <- matrix(c(1,0,0,0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
 
-getTransformation <- function(roll, pitch, R, xShift, azSin, distance) {
+getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
     ReconstructionY <- matrix(c(1,0,0,0,
                                 0,1,tan(pitch),-tan(pitch)/R,
                                 0,0,0,0,
@@ -142,7 +141,7 @@ getTransformation <- function(roll, pitch, R, xShift, azSin, distance) {
     Unshift <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,1,0,
-                        (azSin*distance - xShift * 0)/scaleFactor,0,0,1),
+                        (sin(yaw)*distance - xShift * 0)/scaleFactor,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     distanceScaleFactor = distance/distanceToBlade
     AlignDistance <- matrix(c(distanceScaleFactor,0,0,0,
@@ -165,17 +164,17 @@ getTransformation <- function(roll, pitch, R, xShift, azSin, distance) {
 saveAndShowStitchData <- function(data, side) {
     data[,
         transformation := mapply(
-            function(rAngle, pAngle, ySh, azSin, dist) {getTransformation(rAngle, pAngle, R, ySh, azSin, dist)},
+            function(rAngle, pAngle, ySh, yAngle, dist) {getTransformation(rAngle, pAngle, R, ySh, yAngle, dist)},
             roll,
             pitch,
             x,
-            azimuth,
+            yaw,
             distance,
             SIMPLIFY = FALSE)
         ]
 
     debugData <- data.table(data)
-    data[, c("cam_to_blade_rbt", "roll", "azimuth", "distance", "x", "y") := NULL]
+    data[, c("cam_to_blade_rbt", "roll", "yaw", "distance", "x", "y") := NULL]
     fwrite(data, file = paste0("data/", side, "/metadata.csv"))
     debugData
 }
