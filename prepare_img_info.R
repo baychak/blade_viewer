@@ -118,7 +118,7 @@ scaleFactor <- cos(coords.leading.edge$pitch[21]) * snapshot20_21_z_delta / snap
 
 ProjectionZ <- matrix(c(1,0,0,0,
                         0,1,0,0,
-                        0,0,0,0,
+                        0,0,0,1/R,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
 
@@ -128,14 +128,14 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
                                 0,0,0,0,
                                 0,0,0,1),
                               nrow = 4, ncol = 4, byrow = T)
-    RotateZ <- matrix(c(cos(roll),-sin(roll),0,0,
-                        sin(roll),cos(roll),0,0,
+    RotateZ <- matrix(c(cos(-roll),sin(-roll),0,0,
+                        -sin(-roll),cos(-roll),0,0,
                         0,0,1,0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     RotateX <- matrix(c(1,0,0,0,
-                        0,cos(pitch),-sin(pitch),0,
-                        0,sin(pitch),cos(pitch),0,
+                        0,cos(-pitch),sin(-pitch),0,
+                        0,-sin(-pitch),cos(-pitch),0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     ReconstructionX <- matrix(c(1,0,-tan(yaw),tan(yaw)/R,
@@ -143,9 +143,9 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
                                 0,0,0,0,
                                 0,0,0,1),
                               nrow = 4, ncol = 4, byrow = T)
-    RotateY <- matrix(c(cos(yaw),0,-sin(yaw),0,
+    RotateY <- matrix(c(cos(-yaw),0,-sin(-yaw),0,
                         0,1,0,0,
-                        sin(yaw),0,cos(yaw),0,
+                        sin(-yaw),0,cos(-yaw),0,
                         0,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     Unshift <- matrix(c(1,0,0,0,
