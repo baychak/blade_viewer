@@ -141,7 +141,7 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
     Unshift <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,1,0,
-                        (sin(yaw)*distance - xShift * 0)/scaleFactor,0,0,1),
+                        (-sin(yaw)*distance - xShift * 0)/scaleFactor,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     distanceScaleFactor = distance/distanceToBlade
     AlignDistance <- matrix(c(distanceScaleFactor,0,0,0,
@@ -194,7 +194,7 @@ coords.pressure.side <- prepareSideData("pressure-side", directions$`pressure-si
 ps <- saveAndShowStitchData(coords.pressure.side, "pressure-side")
 
 ###### make and run blade_viewer
-system2("bash", args = c("run_blade_viewer.sh", toString(scaleFactor)))
+# system2("bash", args = c("run_blade_viewer.sh", toString(scaleFactor)))
 
 
 
