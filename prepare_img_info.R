@@ -151,7 +151,7 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
     Unshift <- matrix(c(1,0,0,0,
                         0,1,0,0,
                         0,0,1,0,
-                        (-sin(yaw)*distance - xShift * 0)/scaleFactor,0,0,1),
+                        (-sin(yaw)*distanceToBlade + xShift)/scaleFactor,0,0,1),
                       nrow = 4, ncol = 4, byrow = T)
     distanceScaleFactor = distance/distanceToBlade
     AlignDistance <- matrix(c(distanceScaleFactor,0,0,0,
@@ -166,6 +166,7 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
                         ReconstructionX %*%
                         RotateY %*%
                         AlignDistance %*%
+                        Unshift %*%
                         ProjectionZ
 
     Transformation <- (Transformation/Transformation[4,4])[-3,-3]
@@ -175,33 +176,36 @@ getTransformation <- function(roll, pitch, R, xShift, yaw, distance) {
 saveAndShowStitchData <- function(data, side) {
     data[,
         transformation := mapply(
-            function(rAngle, pAngle, ySh, yAngle, dist) {getTransformation(rAngle, pAngle, R, ySh, yAngle, dist)},
+            function(rAngle, pAngle, xSh, yAngle, dist) {getTransformation(rAngle, pAngle, R, xSh, yAngle, dist)},
             roll,
             pitch,
-            x,
+            xShift,
             yaw,
             distance,
             SIMPLIFY = FALSE)
         ]
 
     debugData <- data.table(data)
-    data[, c("cam_to_blade_rbt", "roll", "yaw", "distance", "x", "y") := NULL]
+    data[, c("cam_to_blade_rbt", "roll", "yaw", "distance", "x", "y", "xShift") := NULL]
     fwrite(data, file = paste0("data/", side, "/metadata.csv"))
     debugData
 }
-
+coords.leading.edge$xShift <- coords.leading.edge$y
 le <- saveAndShowStitchData(coords.leading.edge, "leading-edge")
 
 ###### suction-side
 coords.suction.side <- prepareSideData("suction-side", directions$`suction-side`)
+coords.suction.side$xShift <- -coords.suction.side$x
 ss <- saveAndShowStitchData(coords.suction.side, "suction-side")
 
 ###### trailing-edge
 coords.trailing.edge <- prepareSideData("trailing-edge", directions$`trailing-edge`)
+coords.trailing.edge$xShift <- -coords.trailing.edge$y
 te <- saveAndShowStitchData(coords.trailing.edge, "trailing-edge")
 
 ###### pressure-side
 coords.pressure.side <- prepareSideData("pressure-side", directions$`pressure-side`)
+coords.pressure.side$xShift <- coords.pressure.side$x
 ps <- saveAndShowStitchData(coords.pressure.side, "pressure-side")
 
 ###### make and run blade_viewer

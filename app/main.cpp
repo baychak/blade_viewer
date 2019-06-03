@@ -9,7 +9,7 @@ int main(int argc, char* argv[])
     if (argc == 1)
     {
         std::cout << "Use default scale factor" << std::endl;
-        scaleFactor = 0.0007120899;
+        scaleFactor = 0.0007177229;
     } else {
         scaleFactor = std::stod(argv[1]);
     }
